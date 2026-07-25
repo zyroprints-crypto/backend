@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
 
     # ---- Database ----
-    DATABASE_URL: str = "DATABASE_URL: str = "sqlite:///./zyroprints.db""
+    DATABASE_URL: str = "sqlite:///./zyroprints.db"
 
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
