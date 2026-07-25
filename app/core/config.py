@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # ---- App ----
     PROJECT_NAME: str = "Zyro Prints"
-    ENV: str = "production"
+    ENV: str =  "development"
     API_V1_PREFIX: str = "/api/v1"
     DEBUG: bool = False
 
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
 
     # ---- Database ----
-    DATABASE_URL: str = ""
+    DATABASE_URL: str = "DATABASE_URL: str = "sqlite:///./zyroprints.db""
 
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
