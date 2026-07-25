@@ -3,6 +3,7 @@ Zyro Prints backend entrypoint.
 Run in dev with: uvicorn app.main:app --reload
 Run in prod via the Dockerfile's CMD (gunicorn + uvicorn workers).
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,6 +13,12 @@ from app.middleware.error_handler import register_exception_handlers
 from app.middleware.logging_middleware import RequestLoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
+# Database imports
+from app.database import engine
+from app.models import Base
+
+
+# Routers
 from app.modules.admin.router import router as admin_router
 from app.modules.ai.router import router as ai_router
 from app.modules.analytics.router import router as analytics_router
@@ -29,8 +36,12 @@ from app.modules.search.router import router as search_router
 from app.modules.users.router import router as users_router
 from app.modules.vendors.router import router as vendors_router
 
+
+# Configure logging
 configure_logging()
 
+
+# Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="AI-powered multi-vendor printing marketplace backend.",
@@ -40,6 +51,14 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+
+# Create database tables automatically on startup
+@app.on_event("startup")
+def create_database_tables():
+    Base.metadata.create_all(bind=engine)
+
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -47,12 +66,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Middleware
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
+
+# Error handlers
 register_exception_handlers(app)
 
+
+# API prefix
 API_PREFIX = settings.API_V1_PREFIX
+
+
+# Routes
 app.include_router(auth_router, prefix=API_PREFIX)
 app.include_router(users_router, prefix=API_PREFIX)
 app.include_router(vendors_router, prefix=API_PREFIX)
@@ -71,6 +100,11 @@ app.include_router(search_router, prefix=API_PREFIX)
 app.include_router(analytics_router, prefix=API_PREFIX)
 
 
+# Health check
 @app.get("/health", tags=["Health"])
 def health_check():
-    return {"status": "ok", "service": settings.PROJECT_NAME, "env": settings.ENV}
+    return {
+        "status": "ok",
+        "service": settings.PROJECT_NAME,
+        "env": settings.ENV
+    }
