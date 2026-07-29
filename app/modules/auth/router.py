@@ -5,6 +5,7 @@ from app.common.responses import SuccessResponse
 from app.core.database import get_db
 from app.modules.auth.schemas import (
     ForgotPasswordRequest,
+    GoogleLoginRequest,
     LoginRequest,
     OTPRequest,
     OTPVerify,
@@ -58,3 +59,9 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 def refresh_token(payload: RefreshRequest, db: Session = Depends(get_db)):
     tokens = AuthService(db).refresh(payload.refresh_token)
     return SuccessResponse(message="Token refreshed", data=tokens)
+
+
+@router.post("/google", response_model=SuccessResponse[TokenPair])
+def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
+    tokens = AuthService(db).google_login(payload.id_token)
+    return SuccessResponse(message="Logged in with Google", data=tokens)

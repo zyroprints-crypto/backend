@@ -1,8 +1,10 @@
 """
 Auth service: registration, password login, OTP login/verification,
-token refresh, forgot/reset password, and a Google-login stub
-(verifies the Google ID token via google-auth, then finds-or-creates a user).
+token refresh, forgot/reset password, and Google Sign-In (verifies the
+Firebase ID token, then finds-or-creates a user).
 """
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -20,6 +22,8 @@ from app.modules.auth.schemas import TokenPair
 from app.modules.users.models import User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserOut, UserRegister
+
+_google_request = google_requests.Request()
 
 
 def _otp_key(phone: str) -> str:
@@ -107,4 +111,50 @@ class AuthService:
         user = self.users.get(payload["sub"])
         if not user or not user.is_active:
             raise UnauthorizedError("User not found or inactive")
+        return self._issue_tokens(user)
+
+    def google_login(self, id_token: str) -> TokenPair:
+        """
+        Verifies a Firebase ID token against Google's public keys (no service
+        account credentials needed — just the project ID as the expected
+        audience), then finds an existing user by email or provisions a new
+        customer account, and issues our own JWT pair either way. The rest of
+        the app never sees or trusts Firebase tokens beyond this one call.
+        """
+        if not settings.FIREBASE_PROJECT_ID:
+            raise ValidationAppError("Google Sign-In is not configured on this server")
+
+        try:
+            claims = google_id_token.verify_firebase_token(
+                id_token, _google_request, audience=settings.FIREBASE_PROJECT_ID
+            )
+        except ValueError as exc:
+            raise UnauthorizedError("Invalid or expired Google sign-in token") from exc
+
+        google_uid = claims.get("sub") or claims.get("user_id")
+        email = claims.get("email")
+        full_name = claims.get("name") or (email.split("@")[0] if email else "Google User")
+        avatar_url = claims.get("picture")
+
+        if not google_uid:
+            raise ValidationAppError("Google token did not include a user id")
+
+        user = self.users.get_by_google_id(google_uid)
+        if not user and email:
+            # Link an existing password/OTP account with the same verified email.
+            user = self.users.get_by_email(email)
+            if user:
+                self.users.update(user, google_id=google_uid)
+
+        if not user:
+            if email and self.users.get_by_email(email):
+                raise AlreadyExistsError("An account with this email already exists")
+            user = self.users.create(User(
+                full_name=full_name, email=email, google_id=google_uid,
+                is_email_verified=bool(email), avatar_url=avatar_url,
+            ))
+
+        if not user.is_active:
+            raise UnauthorizedError("Account disabled")
+
         return self._issue_tokens(user)
