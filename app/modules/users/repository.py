@@ -17,6 +17,10 @@ class UserRepository(BaseRepository[User]):
         stmt = select(User).where(User.email == email, User.is_deleted.is_(False))
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_by_google_id(self, google_id: str) -> User | None:
+        stmt = select(User).where(User.google_id == google_id, User.is_deleted.is_(False))
+        return self.db.execute(stmt).scalar_one_or_none()
+
 
 class AddressRepository(BaseRepository[Address]):
     def __init__(self, db: Session):
