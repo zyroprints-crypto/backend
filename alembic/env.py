@@ -26,7 +26,7 @@ from app.modules.payments.models import Payment, VendorSettlement  # noqa
 from app.modules.reviews.models import Review  # noqa
 from app.modules.notifications.models import Notification  # noqa
 from app.modules.delivery.models import DeliveryTask  # noqa
-from app.modules.admin.models import AuditLog, City, Complaint, LoginEvent, PlatformSetting
+import app.modules.admin.models  
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
